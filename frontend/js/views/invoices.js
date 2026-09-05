@@ -385,6 +385,7 @@
       name: 'customer_email',
       autocomplete: 'email',
       inputmode: 'email',
+      required: true,
       placeholder: 'client@exemple.sn',
       'aria-describedby': emailId + '-error',
     });
@@ -414,7 +415,10 @@
           nameError,
         ]),
         el('div', { class: cls.field }, [
-          el('label', { class: cls.label, for: emailId, text: 'E-mail (facultatif)' }),
+          el('label', { class: cls.label, for: emailId }, [
+            'E-mail du client',
+            el('span', { class: cls.labelRequired, text: '*', 'aria-hidden': 'true' }),
+          ]),
           emailInput,
           emailError,
         ]),
@@ -768,7 +772,9 @@
 
       var email = emailInput.value.trim();
       clearFieldError(emailInput, emailError);
-      if (email && !isValidEmail(email)) {
+      if (!email) {
+        fail(emailInput, emailError, 'Indiquez l’adresse e-mail qui recevra la facture.');
+      } else if (!isValidEmail(email)) {
         fail(emailInput, emailError, 'Cette adresse e-mail n’est pas valide.');
       }
 
@@ -821,7 +827,7 @@
 
       return {
         customer_name: name,
-        customer_email: email || null,
+        customer_email: email,
         customer_phone: phone || null,
         currency: CURRENCY,
         business_id: state.businessId || null,

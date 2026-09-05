@@ -19,13 +19,15 @@ def serialize_business(document: dict) -> BusinessResponse:
     return BusinessResponse(id=str(document["_id"]), name=document["name"], slug=document["slug"],
         description=document.get("description"), visibility=document["visibility"],
         owner_id=str(document["owner_id"]), member_ids=[str(item) for item in document.get("member_ids", [])],
+        image_url=document.get("image_url"),
         created_at=document["created_at"], updated_at=document["updated_at"])
 
 
 def serialize_product(document: dict) -> ProductResponse:
     return ProductResponse(id=str(document["_id"]), business_id=str(document["business_id"]), name=document["name"],
         description=document.get("description"), category_id=str(document["category_id"]) if document.get("category_id") else None,
-        price=document["price"], quantity=document.get("quantity"), created_at=document["created_at"], updated_at=document["updated_at"])
+        price=document["price"], quantity=document.get("quantity"), image_url=document.get("image_url"),
+        created_at=document["created_at"], updated_at=document["updated_at"])
 
 
 async def get_business_or_404(business_id: str) -> dict:
@@ -48,6 +50,24 @@ async def require_manager(business_id: str, user: dict) -> dict:
     return business
 
 
+async def category_for_business(database, business: dict, category_id: str | None) -> ObjectId | None:
+    """Validate that a selected category belongs to this exact business."""
+    if not category_id:
+        return None
+    if not ObjectId.is_valid(category_id):
+        raise HTTPException(status_code=422, detail="Invalid category ID")
+    identifier = ObjectId(category_id)
+    category = await database.categories.find_one(
+        {"_id": identifier, "business_id": business["_id"]}, {"_id": 1}
+    )
+    if category is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Cette catégorie n'appartient pas à cette entreprise.",
+        )
+    return identifier
+
+
 @router.post("", response_model=BusinessResponse, status_code=status.HTTP_201_CREATED)
 async def create_business(payload: BusinessCreate, user: dict = Depends(current_user)) -> BusinessResponse:
     database = get_database()
@@ -60,7 +80,7 @@ async def create_business(payload: BusinessCreate, user: dict = Depends(current_
     member_ids = [ObjectId(item) for item in payload.member_ids if ObjectId.is_valid(item)]
     document = {"name": payload.name, "slug": slug, "description": payload.description,
         "visibility": payload.visibility.value, "owner_id": user["_id"], "member_ids": member_ids,
-        "created_at": now, "updated_at": now}
+        "image_url": payload.image_url, "created_at": now, "updated_at": now}
     result = await database.businesses.insert_one(document); document["_id"] = result.inserted_id
     return serialize_business(document)
 
@@ -114,10 +134,10 @@ async def list_categories(business_id: str, user: dict = Depends(current_user)) 
 
 @router.post("/{business_id}/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(business_id: str, payload: ProductCreate, user: dict = Depends(current_user)) -> ProductResponse:
-    business = await require_manager(business_id, user); now = datetime.utcnow()
-    if payload.category_id and not ObjectId.is_valid(payload.category_id): raise HTTPException(status_code=422, detail="Invalid category ID")
-    document = {**payload.model_dump(), "business_id": business["_id"], "category_id": ObjectId(payload.category_id) if payload.category_id else None, "created_at": now, "updated_at": now}
-    result = await get_database().products.insert_one(document); document["_id"] = result.inserted_id
+    business = await require_manager(business_id, user); now = datetime.utcnow(); database = get_database()
+    category_id = await category_for_business(database, business, payload.category_id)
+    document = {**payload.model_dump(), "business_id": business["_id"], "category_id": category_id, "created_at": now, "updated_at": now}
+    result = await database.products.insert_one(document); document["_id"] = result.inserted_id
     return serialize_product(document)
 
 
@@ -139,8 +159,10 @@ async def update_product(business_id: str, product_id: str, payload: ProductUpda
     business = await require_manager(business_id, user)
     if not ObjectId.is_valid(product_id): raise HTTPException(status_code=404, detail="Product not found")
     changes = payload.model_dump(exclude_unset=True)
-    if "category_id" in changes: changes["category_id"] = ObjectId(changes["category_id"]) if changes["category_id"] else None
-    changes["updated_at"] = datetime.utcnow(); database = get_database()
+    database = get_database()
+    if "category_id" in changes:
+        changes["category_id"] = await category_for_business(database, business, changes["category_id"])
+    changes["updated_at"] = datetime.utcnow()
     result = await database.products.update_one({"_id": ObjectId(product_id), "business_id": business["_id"]}, {"$set": changes})
     if not result.matched_count: raise HTTPException(status_code=404, detail="Product not found")
     return serialize_product(await database.products.find_one({"_id": ObjectId(product_id)}))

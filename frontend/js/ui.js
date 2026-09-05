@@ -121,6 +121,26 @@
       'hover:border-cyan-500/50 hover:bg-white dark:hover:bg-stone-900',
     searchInput: CONTROL_BASE + ' pl-10',
 
+    // --- Images ------------------------------------------------------------
+    // Used by imageThumb() and imagePicker(); views should not restyle them.
+    imageFrame:
+      'block overflow-hidden object-cover bg-stone-100 dark:bg-stone-800 ' +
+      'border border-stone-200/70 dark:border-stone-800/70',
+    imagePlaceholder:
+      'flex items-center justify-center shrink-0 bg-stone-100 dark:bg-stone-800 ' +
+      'text-stone-400 dark:text-stone-600 border border-stone-200/70 dark:border-stone-800/70',
+    dropZone:
+      'w-full flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed ' +
+      'border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-950 px-4 py-6 ' +
+      'text-sm font-semibold text-stone-500 dark:text-stone-400 transition-colors ' +
+      'hover:border-cyan-500 hover:bg-white dark:hover:bg-stone-900 ' +
+      'hover:text-cyan-700 dark:hover:text-cyan-400 ' +
+      'disabled:opacity-60 disabled:pointer-events-none ' +
+      FOCUS_OFFSET +
+      ' focus-visible:ring-cyan-500',
+    dropZoneActive:
+      'border-cyan-500 bg-cyan-50/70 dark:bg-cyan-500/5 text-cyan-700 dark:text-cyan-400',
+
     // --- Buttons -----------------------------------------------------------
     btnPrimary: BTN_BASE + ' ' + PRIMARY_SKIN,
     btnSecondary: BTN_BASE + ' ' + SECONDARY_SKIN,
@@ -238,6 +258,9 @@
     inbox: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z"/>',
     filter: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"/>',
     shield: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>',
+    image: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>',
+    upload: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 7.5L12 3m0 0L7.5 7.5M12 3v13.5"/>',
+    cart: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"/>',
   };
 
   function icon(name, extraClass) {
@@ -424,6 +447,397 @@
         return part.charAt(0).toUpperCase();
       })
       .join('');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Images
+  // The backend stores a root-relative path ("/uploads/<file>.png"), so every
+  // src has to be resolved against the API host: the page may be opened from
+  // disk (file://) or served from a different port than the API.
+  // ---------------------------------------------------------------------------
+  var IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+  var IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+  var IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp';
+  var IMAGE_HINT = 'PNG, JPEG ou WebP · 2 Mo maximum';
+
+  var THUMB_SIZES = {
+    xs: 'h-8 w-8',
+    sm: 'h-10 w-10',
+    md: 'h-14 w-14',
+    lg: 'h-20 w-20',
+    xl: 'h-28 w-28',
+    banner: 'w-full aspect-[16/9]',
+    cover: 'w-full aspect-[4/3]',
+  };
+
+  var THUMB_GLYPHS = {
+    xs: 'w-4 h-4',
+    sm: 'w-4 h-4',
+    md: 'w-5 h-5',
+    lg: 'w-6 h-6',
+    xl: 'w-8 h-8',
+    banner: 'w-8 h-8',
+    cover: 'w-8 h-8',
+  };
+
+  var THUMB_ROUNDED = {
+    none: '',
+    lg: 'rounded-lg',
+    xl: 'rounded-xl',
+    '2xl': 'rounded-2xl',
+    full: 'rounded-full',
+  };
+
+  /** Absolute src for a stored image_url. Leaves absolute and data: urls alone. */
+  function imageSrc(url) {
+    var value = String(url || '').trim();
+    if (!value) return '';
+    if (/^(https?:)?\/\//i.test(value) || value.indexOf('data:') === 0) return value;
+    if (value.charAt(0) !== '/') value = '/' + value;
+    return App.config.API_ROOT + value;
+  }
+
+  /** Bare filename of a stored image_url, for App.api.deleteImage(). */
+  function imageFilename(url) {
+    var value = String(url || '').trim();
+    if (!value) return '';
+    value = value.split('?')[0].split('#')[0];
+    var parts = value.split('/');
+    return parts[parts.length - 1] || '';
+  }
+
+  function thumbPlaceholder(sizeKey, sizeClass, roundedClass, opts) {
+    var node = el('div', {
+      class: cls.imagePlaceholder + ' ' + sizeClass + ' ' + roundedClass + ' ' + (opts.class || ''),
+      html: icon(opts.icon || 'image', THUMB_GLYPHS[sizeKey] || 'w-5 h-5'),
+    });
+    if (opts.alt) {
+      node.setAttribute('role', 'img');
+      node.setAttribute('aria-label', opts.alt);
+    } else {
+      node.setAttribute('aria-hidden', 'true');
+    }
+    return node;
+  }
+
+  /**
+   * imageThumb(url, {alt, size, rounded, icon, class}) -> Node
+   * size: 'xs'|'sm'|'md'|'lg'|'xl'|'banner'|'cover' or raw Tailwind classes.
+   * Returns an <img> when url is set, otherwise a placeholder tile of the same
+   * size - so a missing (or broken) image can never break a layout.
+   */
+  function imageThumb(url, options) {
+    var opts = options || {};
+    var sizeKey = THUMB_SIZES[opts.size] ? opts.size : opts.size ? '' : 'md';
+    var sizeClass = sizeKey ? THUMB_SIZES[sizeKey] : String(opts.size);
+    var roundedClass =
+      THUMB_ROUNDED[opts.rounded] !== undefined ? THUMB_ROUNDED[opts.rounded] : THUMB_ROUNDED.xl;
+    var src = imageSrc(url);
+
+    if (!src) return thumbPlaceholder(sizeKey || 'md', sizeClass, roundedClass, opts);
+
+    var img = el('img', {
+      src: src,
+      alt: opts.alt || '',
+      loading: 'lazy',
+      decoding: 'async',
+      class: cls.imageFrame + ' ' + sizeClass + ' ' + roundedClass + ' ' + (opts.class || ''),
+    });
+    // A deleted or unreachable file falls back to the placeholder tile.
+    img.addEventListener('error', function () {
+      if (!img.parentNode) return;
+      img.parentNode.replaceChild(
+        thumbPlaceholder(sizeKey || 'md', sizeClass, roundedClass, opts),
+        img
+      );
+    });
+    return img;
+  }
+
+  var pickerSeq = 0;
+
+  /**
+   * imagePicker({value, onChange, label, hint, alt, size}) -> {element, value(), set(url), uploaded()}
+   *
+   * Click-or-drop zone that uploads through App.api.uploadImage and reports the
+   * stored url through onChange(url|null). Type and size are checked client
+   * side before the request. "Retirer" only clears the field: nothing is
+   * deleted from disk, so a cancelled form never loses a saved image. The
+   * uploaded() list gives the owning view the filenames it may clean up with
+   * App.api.deleteImage() if the user abandons the form.
+   */
+  function imagePicker(options) {
+    var opts = options || {};
+    var onChange = typeof opts.onChange === 'function' ? opts.onChange : function () {};
+    var currentValue = opts.value || null;
+    var uploaded = [];
+    var busy = false;
+    var errorMessage = '';
+    var refocus = false;
+
+    pickerSeq += 1;
+    var hintId = 'image-picker-hint-' + pickerSeq;
+    var errorId = 'image-picker-error-' + pickerSeq;
+
+    var wrap = el('div', { class: 'space-y-1.5 min-w-0' });
+    if (opts.label) {
+      // Announced as a named group, so the buttons inside are not orphaned.
+      wrap.setAttribute('role', 'group');
+      wrap.setAttribute('aria-label', opts.label);
+    }
+
+    // Kept out of the re-rendered body so the file dialog survives a repaint.
+    var input = el('input', {
+      type: 'file',
+      accept: IMAGE_ACCEPT,
+      class: 'sr-only',
+      tabindex: '-1',
+      'aria-hidden': 'true',
+    });
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      // Reset first so picking the same file twice still fires a change.
+      input.value = '';
+      if (file) handleFile(file);
+    });
+
+    var body = el('div', { class: 'min-w-0' });
+    var messages = el('div', { class: 'space-y-1' });
+    var dropNode = null;
+
+    function openDialog() {
+      if (busy) return;
+      input.click();
+    }
+
+    function validate(file) {
+      if (!file) return 'Aucun fichier sélectionné.';
+      var type = String(file.type || '').toLowerCase();
+      var looksLikeImage = type
+        ? IMAGE_TYPES.indexOf(type) !== -1
+        : /\.(png|jpe?g|webp)$/i.test(file.name || '');
+      if (!looksLikeImage) {
+        return 'Format non pris en charge. Choisissez une image PNG, JPEG ou WebP.';
+      }
+      if (file.size === 0) return 'Ce fichier est vide. Choisissez une autre image.';
+      if (file.size > IMAGE_MAX_BYTES) {
+        return 'Cette image dépasse 2 Mo. Choisissez un fichier plus léger.';
+      }
+      return '';
+    }
+
+    function commit(url) {
+      currentValue = url || null;
+      errorMessage = '';
+      render();
+      onChange(currentValue);
+    }
+
+    function handleFile(file) {
+      var problem = validate(file);
+      if (problem) {
+        errorMessage = problem;
+        render();
+        return;
+      }
+      errorMessage = '';
+      busy = true;
+      render();
+      App.api.uploadImage(file).then(
+        function (result) {
+          busy = false;
+          var url = result && result.url ? result.url : null;
+          if (!url) {
+            errorMessage = "L'image n'a pas pu être enregistrée. Réessayez.";
+            render();
+            return;
+          }
+          if (result.filename) uploaded.push(result.filename);
+          commit(url);
+        },
+        function (error) {
+          busy = false;
+          errorMessage = (error && error.message) || "L'envoi de l'image a échoué.";
+          render();
+        }
+      );
+    }
+
+    function setDragging(active) {
+      if (!dropNode) return;
+      cls.dropZoneActive.split(' ').forEach(function (klass) {
+        if (klass) dropNode.classList.toggle(klass, active);
+      });
+    }
+
+    // Dropping anywhere on the control works, including onto the preview.
+    ['dragenter', 'dragover'].forEach(function (name) {
+      wrap.addEventListener(name, function (event) {
+        if (busy) return;
+        event.preventDefault();
+        setDragging(true);
+      });
+    });
+    ['dragleave', 'dragend'].forEach(function (name) {
+      wrap.addEventListener(name, function (event) {
+        if (event.target !== wrap && wrap.contains(event.relatedTarget)) return;
+        setDragging(false);
+      });
+    });
+    wrap.addEventListener('drop', function (event) {
+      event.preventDefault();
+      setDragging(false);
+      if (busy) return;
+      var files = event.dataTransfer && event.dataTransfer.files;
+      if (files && files.length) handleFile(files[0]);
+    });
+
+    function spinnerRow(label) {
+      return el(
+        'span',
+        {
+          class:
+            'inline-flex items-center gap-2 text-xs font-semibold ' +
+            'text-stone-500 dark:text-stone-400',
+          role: 'status',
+        },
+        [
+          fromHTML(
+            '<span class="inline-block h-4 w-4 shrink-0 rounded-full border-2 border-current ' +
+              'border-r-transparent spin"></span>'
+          ),
+          label,
+        ]
+      );
+    }
+
+    function renderEmpty() {
+      dropNode = el(
+        'button',
+        {
+          type: 'button',
+          class: cls.dropZone,
+          disabled: busy,
+          'aria-describedby': hintId,
+          onclick: openDialog,
+        },
+        busy
+          ? [spinnerRow('Envoi de l’image…')]
+          : [
+              fromHTML(icon('upload', 'w-6 h-6')),
+              el('span', { text: 'Ajouter une image' }),
+              el('span', {
+                class: 'text-xs font-medium text-stone-400 dark:text-stone-500 text-center',
+                text: 'Cliquez pour choisir un fichier ou déposez-le ici',
+              }),
+            ]
+      );
+      return dropNode;
+    }
+
+    function renderPreview() {
+      var actions = busy
+        ? [spinnerRow('Envoi de l’image…')]
+        : [
+            el('div', { class: 'flex flex-wrap items-center gap-2' }, [
+              el('button', {
+                type: 'button',
+                class: cls.btnSecondarySm,
+                html: icon('upload', 'w-3.5 h-3.5') + 'Remplacer',
+                onclick: openDialog,
+              }),
+              el('button', {
+                type: 'button',
+                class: cls.btnDangerSoftSm,
+                html: icon('trash', 'w-3.5 h-3.5') + 'Retirer',
+                onclick: function () {
+                  refocus = true;
+                  commit(null);
+                },
+              }),
+            ]),
+          ];
+
+      dropNode = el(
+        'div',
+        { class: cls.surface + ' p-3 flex items-center gap-3 sm:gap-4 transition-colors' },
+        [
+          imageThumb(currentValue, {
+            alt: opts.alt || '',
+            size: opts.size || 'h-16 w-16 sm:h-20 sm:w-20 shrink-0',
+            rounded: 'xl',
+          }),
+          el('div', { class: 'min-w-0 flex-1 space-y-2' }, [
+            el('p', {
+              class: 'text-xs font-semibold text-stone-600 dark:text-stone-300 truncate',
+              text: imageFilename(currentValue) || 'Image enregistrée',
+            }),
+            actions,
+          ]),
+        ]
+      );
+      return dropNode;
+    }
+
+    function render() {
+      body.innerHTML = '';
+      body.appendChild(currentValue ? renderPreview() : renderEmpty());
+      body.setAttribute('aria-busy', busy ? 'true' : 'false');
+      if (refocus && !currentValue && dropNode && typeof dropNode.focus === 'function') {
+        refocus = false;
+        window.setTimeout(function () {
+          try {
+            dropNode.focus();
+          } catch (err) {
+            /* ignore */
+          }
+        }, 0);
+      }
+      messages.innerHTML = '';
+      if (errorMessage) {
+        messages.appendChild(
+          el('p', {
+            id: errorId,
+            class: cls.errorText + ' [overflow-wrap:anywhere]',
+            role: 'alert',
+            text: errorMessage,
+          })
+        );
+      }
+      messages.appendChild(
+        el('p', { id: hintId, class: cls.hint, text: opts.hint || IMAGE_HINT })
+      );
+    }
+
+    if (opts.label) {
+      wrap.appendChild(el('span', { class: cls.label, text: opts.label }));
+    }
+    wrap.appendChild(input);
+    wrap.appendChild(body);
+    wrap.appendChild(messages);
+    render();
+
+    return {
+      element: wrap,
+      /** Current stored url, or null. */
+      value: function () {
+        return currentValue;
+      },
+      /** Set the url programmatically (does not fire onChange). */
+      set: function (url) {
+        currentValue = url || null;
+        errorMessage = '';
+        render();
+      },
+      /** Filenames uploaded by this control, for optional cleanup on cancel. */
+      uploaded: function () {
+        return uploaded.slice();
+      },
+      /** True while an upload is in flight - block form submission on it. */
+      busy: function () {
+        return busy;
+      },
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -1195,6 +1609,12 @@
     timeAgo: timeAgo,
     initials: initials,
     plural: plural,
+    imageSrc: imageSrc,
+    imageFilename: imageFilename,
+    imageThumb: imageThumb,
+    imagePicker: imagePicker,
+    imageMaxBytes: IMAGE_MAX_BYTES,
+    imageAccept: IMAGE_ACCEPT,
     statusBadge: statusBadge,
     statusLabel: statusLabel,
     roleBadge: roleBadge,

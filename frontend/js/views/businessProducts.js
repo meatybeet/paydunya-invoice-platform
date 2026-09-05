@@ -380,9 +380,19 @@
         }),
       ]);
 
+      // Decorative: the product name sits right next to the thumbnail. A missing
+      // image_url (every product created before images existed) renders the
+      // placeholder tile of the same size, so the grid stays perfectly aligned.
+      var media = ui.imageThumb(product.image_url, {
+        size: 'h-16 w-16 sm:h-20 sm:w-20 shrink-0',
+        rounded: 'xl',
+        alt: '',
+      });
+
       return ui.el('article', { class: cls.cardLift + ' flex flex-col gap-3' }, [
-        ui.el('div', { class: 'flex items-start justify-between gap-3' }, [
-          ui.el('div', { class: 'min-w-0 space-y-2' }, [
+        ui.el('div', { class: 'flex items-start gap-3' }, [
+          media,
+          ui.el('div', { class: 'min-w-0 flex-1 space-y-2' }, [
             ui.el('h3', {
               class: cls.cardTitle + ' ' + cls.breakAnywhere + ' leading-snug',
               style: CLAMP_2,
@@ -397,7 +407,6 @@
                 '</span>',
             }),
           ]),
-          actions,
         ]),
 
         product.description
@@ -624,6 +633,18 @@
         hint: 'Facultatif, 1000 caractères maximum.',
       });
 
+      var initialImage = (isEdit && product.image_url) || null;
+      var imageValue = initialImage;
+      var imageField = ui.imagePicker({
+        value: initialImage,
+        label: 'Image du produit',
+        hint: 'Facultative. PNG, JPEG ou WebP · 2 Mo maximum. Elle apparaît dans le catalogue public.',
+        alt: isEdit && product.name ? 'Image de ' + product.name : 'Image du produit',
+        onChange: function (url) {
+          imageValue = url || null;
+        },
+      });
+
       var categorySelect = ui.el('select', { class: cls.select });
       function fillCategories(selectedId) {
         categorySelect.innerHTML = '';
@@ -694,6 +715,7 @@
       var form = ui.el('form', { class: cls.form, novalidate: true }, [
         nameField.wrap,
         descriptionField.wrap,
+        imageField.element,
         categoryField.wrap,
         ui.el('div', { class: cls.formGrid }, [priceField.wrap, quantityField.wrap]),
       ]);
@@ -768,6 +790,7 @@
         return {
           name: name,
           description: description || null,
+          image_url: imageValue,
           category_id: categorySelect.value || null,
           price: price,
           quantity: quantity,
@@ -776,6 +799,13 @@
 
       function submit(button) {
         if (submitting) return;
+        if (imageField.busy()) {
+          ui.toast({
+            message: 'L’image est encore en cours d’envoi. Réessayez dans un instant.',
+            type: 'info',
+          });
+          return;
+        }
         var values = readValues();
         if (!values) return;
 
@@ -785,6 +815,9 @@
           if (values.name !== product.name) payload.name = values.name;
           if (values.description !== (product.description || null)) {
             payload.description = values.description;
+          }
+          if (values.image_url !== (product.image_url || null)) {
+            payload.image_url = values.image_url;
           }
           if (values.category_id !== (product.category_id || null)) {
             payload.category_id = values.category_id;
@@ -935,6 +968,12 @@
         },
       });
 
+      var paymentLinkButton = ui.el('a', {
+        href: App.router.paths.paymentLinkFor(business.id),
+        class: cls.btnSecondary + ' w-full sm:w-auto',
+        html: ui.icon('link', 'w-4 h-4') + 'Créer un lien de paiement',
+      });
+
       countLabel = ui.el('p', { class: cls.mutedSm, 'aria-live': 'polite' });
       stripWrap = ui.el('div');
       listWrap = ui.el('div');
@@ -944,7 +983,7 @@
         { class: 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between' },
         [
           ui.el('div', { class: 'relative min-w-0 flex-1 sm:max-w-sm' }, [searchIcon, searchInput]),
-          addProductButton,
+          ui.el('div', { class: 'flex flex-col sm:flex-row gap-2' }, [paymentLinkButton, addProductButton]),
         ]
       );
 

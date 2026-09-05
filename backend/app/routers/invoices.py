@@ -1,18 +1,27 @@
+import secrets
 from datetime import datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..database import get_database
-from ..models import InvoiceInDB
-from ..schemas import InvoiceCreate, InvoiceResponse, InvoiceStatusUpdate
+from ..models import InvoiceInDB, InvoiceItem, InvoiceStatus
+from ..schemas import InvoiceCreate, InvoiceResponse, InvoiceStatusUpdate, PaymentLinkRequest
 from ..services.paydunya import PayDunyaClient
 from .auth import current_user, super_admin
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
+# PayDunya refuses a checkout below this amount.
+MINIMUM_CHECKOUT_AMOUNT = 200
 
-def serialize_invoice(document: dict) -> InvoiceResponse:
+
+def new_public_token() -> str:
+    """Unguessable credential used by the public invoice and receipt routes."""
+    return secrets.token_urlsafe(24)
+
+
+def serialize_invoice(document: dict, warning: str | None = None) -> InvoiceResponse:
     invoice = invoice_from_document(document)
     return InvoiceResponse(
         id=str(document["_id"]),
@@ -25,8 +34,12 @@ def serialize_invoice(document: dict) -> InvoiceResponse:
         amount=invoice.amount,
         status=invoice.status,
         payment_url=invoice.payment_url,
+        public_token=invoice.public_token,
+        receipt_number=invoice.receipt_number,
+        paid_at=invoice.paid_at,
         created_at=invoice.created_at,
         updated_at=invoice.updated_at,
+        warning=warning,
     )
 
 
@@ -119,12 +132,107 @@ async def create_invoice(
         "status": "pending",
         "payment_url": None,
         "paydunya_token": None,
+        "public_token": new_public_token(),
+        "receipt_number": None,
+        "paid_at": None,
         "metadata": {},
         "created_at": now,
         "updated_at": now,
     }
     result = await db.invoices.insert_one(document)
     document["_id"] = result.inserted_id
+    return serialize_invoice(document)
+
+
+@router.post("/from-products", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
+async def create_invoice_from_products(
+    payload: PaymentLinkRequest,
+    user: dict = Depends(current_user),
+) -> InvoiceResponse:
+    """Build an invoice from a selection of catalog products and link it to PayDunya."""
+    # Imported here on purpose: businesses.py imports this module at import time,
+    # so a module level import would be circular.
+    from .businesses import require_manager
+
+    business = await require_manager(payload.business_id, user)
+    db = get_database()
+
+    product_ids: list[ObjectId] = []
+    for entry in payload.items:
+        if not ObjectId.is_valid(entry.product_id):
+            raise HTTPException(status_code=422, detail="Un produit sélectionné est introuvable dans cette entreprise.")
+        product_ids.append(ObjectId(entry.product_id))
+
+    rows = await db.products.find(
+        {"_id": {"$in": product_ids}, "business_id": business["_id"]}
+    ).to_list(length=len(product_ids))
+    products = {str(row["_id"]): row for row in rows}
+
+    # Names and prices always come from the database, never from the client.
+    items: list[InvoiceItem] = []
+    for entry in payload.items:
+        product = products.get(entry.product_id)
+        if product is None:
+            raise HTTPException(status_code=422, detail="Un produit sélectionné est introuvable dans cette entreprise.")
+        items.append(
+            InvoiceItem(
+                name=product["name"],
+                quantity=entry.quantity,
+                unit_price=float(product["price"]),
+                product_id=str(product["_id"]),
+            )
+        )
+
+    amount = sum(item.total for item in items)
+    if amount < MINIMUM_CHECKOUT_AMOUNT:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Le montant total doit être d'au moins {MINIMUM_CHECKOUT_AMOUNT} FCFA pour créer un lien de paiement.",
+        )
+
+    now = datetime.utcnow()
+    document = {
+        "customer_name": payload.customer_name,
+        "customer_email": payload.customer_email,
+        "customer_phone": payload.customer_phone,
+        "currency": payload.currency,
+        "business_id": business["_id"],
+        "created_by": user["_id"],
+        "items": [item.model_dump() for item in items],
+        "status": "pending",
+        "payment_url": None,
+        "paydunya_token": None,
+        "public_token": new_public_token(),
+        "receipt_number": None,
+        "paid_at": None,
+        "metadata": {},
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db.invoices.insert_one(document)
+    document["_id"] = result.inserted_id
+
+    # The invoice is already saved: a PayDunya outage must not lose it.
+    try:
+        payment = await PayDunyaClient().create_payment_link(invoice_from_document(document))
+    except Exception:
+        return serialize_invoice(
+            document,
+            warning="La facture a été créée mais le lien de paiement PayDunya n'a pas pu être généré. Réessayez depuis la facture.",
+        )
+
+    await db.invoices.update_one(
+        {"_id": document["_id"]},
+        {
+            "$set": {
+                "payment_url": payment.url,
+                "paydunya_token": payment.token,
+                "updated_at": datetime.utcnow(),
+            }
+        },
+    )
+    document["payment_url"] = payment.url
+    document["paydunya_token"] = payment.token
     return serialize_invoice(document)
 
 
@@ -160,6 +268,16 @@ async def update_invoice_status(
     _: dict = Depends(super_admin),
 ) -> InvoiceResponse:
     document = await find_invoice_or_404(invoice_id)
+    if document.get("status") == InvoiceStatus.paid.value:
+        raise HTTPException(
+            status_code=409,
+            detail="Une facture payée ne peut plus être modifiée manuellement.",
+        )
+    if payload.status == InvoiceStatus.paid:
+        raise HTTPException(
+            status_code=422,
+            detail="Le statut payé est réservé à la confirmation PayDunya.",
+        )
     db = get_database()
     await db.invoices.update_one(
         {"_id": document["_id"]},
@@ -177,6 +295,16 @@ async def create_payment_link(
     document = await find_invoice_or_404(invoice_id)
     await require_invoice_access(document, user)
     invoice = invoice_from_document(document)
+    if invoice.status == InvoiceStatus.paid:
+        raise HTTPException(
+            status_code=409,
+            detail="Cette facture est déjà payée. Aucun nouveau lien de paiement n'est nécessaire.",
+        )
+    if invoice.status == InvoiceStatus.canceled:
+        raise HTTPException(
+            status_code=409,
+            detail="Cette facture est annulée et ne peut plus recevoir de lien de paiement.",
+        )
 
     paydunya = PayDunyaClient()
     try:

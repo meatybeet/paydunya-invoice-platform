@@ -10,6 +10,9 @@ invoices, and PayDunya Mobile Money payment links.
 - Role-based users and business access
 - Public or private product catalogs
 - PayDunya payment-link integration
+- Product-selection payment links that a customer can open without an account
+- Permanent, downloadable HTML invoices issued after PayDunya confirms payment
+- Optional business and product images, stored locally and served safely
 - Signed-in browser interface for businesses, products, invoices, and users
 
 ## Project Structure
@@ -91,6 +94,17 @@ Desktop must be running. The data is stored in the named Docker volume
 To use MongoDB Atlas or another remote database instead, set `MONGODB_URL` to
 that connection string; the local Docker container will be skipped.
 
+To add the requested example catalog to an existing **DIALLO & FILS** business,
+run this once from the repository root after MongoDB is available:
+
+```powershell
+.\venv\Scripts\python.exe backend\seed_diallo.py
+```
+
+The normal command is safe to run again: it adds only missing categories and
+products. Do not pass `--reset` unless you intentionally want to delete every
+product and category belonging to that business.
+
 To expose the local API temporarily through Cloudflare, install
 [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/),
 then run:
@@ -108,6 +122,12 @@ catalogs. A public catalog has the form
 interface copies the correct link from the business page. The included
 `cloudflared.example.yml` is a starting point for a permanent named tunnel.
 
+## Going live
+
+For a step-by-step production deployment guide covering HTTPS, MongoDB,
+PayDunya callbacks, SMTP invoices, backups, and verification, read
+[how_to_go_live.md](how_to_go_live.md).
+
 ## Roles and access
 
 - A **super admin** creates and lists users, and can manage every business.
@@ -119,7 +139,8 @@ interface copies the correct link from the business page. The included
   creating or updating a business.
 - Invoices are private: a super admin sees all invoices; other users see only
   invoices they created or invoices belonging to a business they can access.
-  Manually changing a payment status is restricted to the super admin.
+  A super admin may cancel or reopen an unpaid invoice; only PayDunya's verified
+  callback can mark one as paid.
 
 ## API endpoints
 
@@ -135,11 +156,16 @@ interface copies the correct link from the business page. The included
 - `GET /api/businesses/{business_id}/payment-history`
 - `GET /api/public/businesses/{slug}`
 - `GET /api/public/businesses/{slug}/products`
+- `POST /api/uploads/image` and `DELETE /api/uploads/image/{filename}` — signed-in users only
 - `POST /api/invoices` — authorised business members only
+- `POST /api/invoices/from-products` — build a payment link from saved products
 - `GET /api/invoices` — invoices visible to the signed-in user
 - `GET /api/invoices/{invoice_id}` — authorised invoice viewers only
 - `PATCH /api/invoices/{invoice_id}/status` — super admin only
 - `POST /api/invoices/{invoice_id}/payment-link` — authorised invoice viewers only
+- `GET /api/public/invoices/{token}` — safe public payment/invoice view
+- `POST /api/public/invoices/{token}/payment-link` — payer retries link generation
+- `GET /api/public/invoices/{token}/download` — paid invoice download
 
 Protected routes need this header after login:
 

@@ -283,10 +283,33 @@
     var row = head.lastElementChild;
     if (row) {
       var titleBlock = row.firstElementChild;
-      if (titleBlock) titleBlock.appendChild(buildMeta(context));
+      if (titleBlock) {
+        titleBlock.appendChild(buildMeta(context));
+        addHeaderImage(titleBlock, business);
+      }
       row.appendChild(buildHeaderActions(context));
     }
     return head;
+  }
+
+  /**
+   * Move the title, subtitle and meta into a column so the business image can
+   * sit beside them. A business without an image keeps the same tile, so the
+   * header never shifts between the two states.
+   */
+  function addHeaderImage(titleBlock, business) {
+    var text = ui.el('div', { class: 'min-w-0 flex-1' });
+    while (titleBlock.firstChild) text.appendChild(titleBlock.firstChild);
+
+    titleBlock.className = 'min-w-0 flex items-start gap-3 sm:gap-4';
+    titleBlock.appendChild(
+      ui.imageThumb(business.image_url, {
+        size: 'h-14 w-14 sm:h-20 sm:w-20 shrink-0',
+        rounded: '2xl',
+        icon: 'business',
+      })
+    );
+    titleBlock.appendChild(text);
   }
 
   function relationChip(business) {
@@ -1091,6 +1114,21 @@
     ]);
   }
 
+  /**
+   * Drop files the picker uploaded during this editing session that the saved
+   * business does not reference. Failures are ignored: an orphan file is
+   * harmless, and the user must never see an error for it.
+   */
+  function discardUnusedUploads(picker, keptUrl) {
+    var kept = ui.imageFilename(keptUrl);
+    picker.uploaded().forEach(function (filename) {
+      if (!filename || filename === kept) return;
+      App.api.deleteImage(filename).then(null, function () {
+        /* ignore */
+      });
+    });
+  }
+
   function field(options) {
     var wrap = ui.el('div', { class: cls.field });
     var label = ui.el('label', { class: cls.label, for: options.id });
@@ -1142,6 +1180,18 @@
 
     // --- Identity form -------------------------------------------------------
     var form = ui.el('form', { class: cls.form, novalidate: true });
+
+    var initialImage = business.image_url || null;
+    var imageValue = initialImage;
+    var imageField = ui.imagePicker({
+      value: initialImage,
+      label: 'Image de l’entreprise',
+      hint: 'Facultative. PNG, JPEG ou WebP · 2 Mo maximum. Elle illustre le catalogue et les factures.',
+      alt: business.name ? 'Image de ' + business.name : 'Image de l’entreprise',
+      onChange: function (url) {
+        imageValue = url || null;
+      },
+    });
 
     var nameError = ui.el('p', { class: cls.errorText, hidden: true });
     var nameInput = ui.el('input', {
@@ -1231,6 +1281,8 @@
         error: nameError,
       })
     );
+
+    form.appendChild(imageField.element);
 
     form.appendChild(
       field({
@@ -1475,7 +1527,9 @@
         nameInput.value = business.name || '';
         descriptionInput.value = business.description || '';
         publicOption.input.checked = business.visibility === 'public';
-        privateOption.input.checked = business.visibility !== 'public';
+      privateOption.input.checked = business.visibility !== 'public';
+      imageValue = initialImage;
+      imageField.set(initialImage);
         selectedMembers = {};
         (business.member_ids || []).forEach(function (id) {
           selectedMembers[id] = true;
@@ -1513,6 +1567,14 @@
     form.addEventListener('submit', function (event) {
       event.preventDefault();
 
+      if (imageField.busy()) {
+        ui.toast({
+          message: 'L’image est encore en cours d’envoi. Réessayez dans un instant.',
+          type: 'info',
+        });
+        return;
+      }
+
       var name = nameInput.value.trim();
       var description = descriptionInput.value.trim();
 
@@ -1542,6 +1604,7 @@
 
       var visibility = publicOption.input.checked ? 'public' : 'private';
       if (visibility !== business.visibility) payload.visibility = visibility;
+      if (imageValue !== initialImage) payload.image_url = imageValue;
 
       if (canManage) {
         var chosen = Object.keys(selectedMembers)

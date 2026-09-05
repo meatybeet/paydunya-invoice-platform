@@ -15,6 +15,7 @@
     { name: 'businessDetail', pattern: '/entreprises/:id', nav: 'businesses' },
     { name: 'invoices', pattern: '/factures', nav: 'invoices' },
     { name: 'invoiceDetail', pattern: '/factures/:id', nav: 'invoices' },
+    { name: 'paymentLink', pattern: '/lien-de-paiement', nav: 'paymentLink' },
     { name: 'users', pattern: '/utilisateurs', nav: 'users', roles: ['super_admin'] },
   ];
 
@@ -32,13 +33,42 @@
     return document.getElementById('view');
   }
 
-  function normalize(hash) {
+  /** Split '#/lien-de-paiement?entreprise=1' into its path and query halves. */
+  function splitHash(hash) {
     var value = String(hash || '').replace(/^#/, '');
+    var mark = value.indexOf('?');
+    if (mark === -1) return { path: value, query: '' };
+    return { path: value.slice(0, mark), query: value.slice(mark + 1) };
+  }
+
+  function normalize(hash) {
+    var value = splitHash(hash).path;
     if (!value) value = '/';
     if (value.charAt(0) !== '/') value = '/' + value;
     // Drop a trailing slash except for the root path.
     if (value.length > 1) value = value.replace(/\/+$/, '');
     return value;
+  }
+
+  /** Query string of a hash, as an object. Views read it from params. */
+  function parseQuery(text) {
+    var result = {};
+    String(text || '')
+      .split('&')
+      .forEach(function (pair) {
+        if (!pair) return;
+        var mark = pair.indexOf('=');
+        var key = mark === -1 ? pair : pair.slice(0, mark);
+        var value = mark === -1 ? '' : pair.slice(mark + 1);
+        try {
+          result[decodeURIComponent(key.replace(/\+/g, ' '))] = decodeURIComponent(
+            value.replace(/\+/g, ' ')
+          );
+        } catch (err) {
+          result[key] = value;
+        }
+      });
+    return result;
   }
 
   function match(path) {
@@ -99,7 +129,7 @@
     );
   }
 
-  var current = { name: null, params: {}, path: null };
+  var current = { name: null, params: {}, path: null, query: '' };
 
   function handle(force) {
     var container = outlet();
@@ -110,15 +140,16 @@
     if (!App.session.isAuthenticated()) return;
 
     var path = normalize(window.location.hash);
+    var query = splitHash(window.location.hash).query;
 
     // Guard against rendering the same route twice (a programmatic hash change
     // fires hashchange after we have already rendered).
-    if (!force && path === current.path) return;
+    if (!force && path === current.path && query === current.query) return;
 
     var found = match(path);
 
     if (!found) {
-      current = { name: null, params: {}, path: path };
+      current = { name: null, params: {}, path: path, query: query };
       setActiveNav(null);
       renderNotFound(container, path);
       return;
@@ -144,7 +175,16 @@
     if (!view || typeof view.render !== 'function') {
       view = resolveView(route.fallback);
     }
-    current = { name: route.name, params: found.params, path: path };
+
+    // Query values are merged into the params handed to the view; a real route
+    // param always wins over a same-named query value.
+    var params = parseQuery(query);
+    Object.keys(found.params).forEach(function (key) {
+      params[key] = found.params[key];
+    });
+    found.params = params;
+
+    current = { name: route.name, params: params, path: path, query: query };
     setActiveNav(route.nav);
 
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -211,6 +251,12 @@
       invoice: function (id) {
         return '#/factures/' + encodeURIComponent(id);
       },
+      // Optional ?entreprise=<id> preselects a business in the builder.
+      paymentLink: '#/lien-de-paiement',
+      paymentLinkFor: function (businessId) {
+        if (!businessId) return '#/lien-de-paiement';
+        return '#/lien-de-paiement?entreprise=' + encodeURIComponent(businessId);
+      },
       users: '#/utilisateurs',
     },
 
@@ -236,7 +282,8 @@
     navigate: function (hash, options) {
       var target = String(hash || '#/');
       if (target.charAt(0) !== '#') target = '#' + (target.charAt(0) === '/' ? '' : '/') + target;
-      var samePath = normalize(target) === current.path;
+      var samePath =
+        normalize(target) === current.path && splitHash(target).query === current.query;
       if (options && options.replace) {
         window.location.replace(window.location.pathname + window.location.search + target);
         if (samePath) handle(true);
@@ -253,7 +300,17 @@
     },
 
     current: function () {
-      return { name: current.name, params: current.params, path: current.path };
+      return {
+        name: current.name,
+        params: current.params,
+        path: current.path,
+        query: current.query,
+      };
+    },
+
+    /** Query values of the current hash, as an object. */
+    query: function () {
+      return parseQuery(current.query);
     },
   };
 })();

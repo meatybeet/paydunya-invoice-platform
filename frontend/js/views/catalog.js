@@ -187,6 +187,18 @@
         : '') +
       '</div>';
 
+    // Images are optional; imageThumb supplies a stable placeholder for every
+    // older product that does not have one yet.
+    card.insertBefore(
+      ui.imageThumb(product.image_url, {
+        size: 'cover',
+        rounded: 'xl',
+        icon: 'package',
+        alt: product.name ? 'Image de ' + product.name : 'Image du produit',
+      }),
+      card.firstChild
+    );
+
     return card;
   }
 
@@ -281,6 +293,18 @@
     );
 
     var inner = section('relative py-10 sm:py-14 lg:py-20 animate-fade-in');
+
+    if (business.image_url) {
+      inner.appendChild(
+        ui.imageThumb(business.image_url, {
+          size: 'lg',
+          rounded: '2xl',
+          icon: 'business',
+          alt: business.name ? 'Image de ' + business.name : 'Image de l’entreprise',
+          class: 'mb-5',
+        })
+      );
+    }
 
     var badges = ui.el('div', { class: 'flex flex-wrap items-center gap-2' });
     badges.appendChild(

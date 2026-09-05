@@ -1,9 +1,38 @@
+import secrets
 import sys
 from datetime import datetime
 
 from ..config import settings
 from ..database import get_database
 from .auth import hash_password
+
+
+async def ensure_invoice_public_tokens() -> None:
+    """Give every existing invoice a public token and index it.
+
+    Invoices created before the permanent-link feature have no token, so their
+    receipt page would be unreachable.
+    """
+    database = get_database()
+    cursor = database.invoices.find(
+        {"$or": [{"public_token": {"$exists": False}}, {"public_token": None}]},
+        {"_id": 1},
+    )
+    updated = 0
+    async for row in cursor:
+        await database.invoices.update_one(
+            {"_id": row["_id"]},
+            {"$set": {"public_token": secrets.token_urlsafe(24)}},
+        )
+        updated += 1
+    if updated:
+        print(f"Backfilled a public token on {updated} invoice(s).")
+
+    try:
+        await database.invoices.create_index("public_token", unique=True, sparse=True)
+    except Exception as error:
+        # A legacy duplicate must not stop the application from starting.
+        print(f"Could not create the unique index on invoices.public_token: {error}")
 
 
 async def ensure_super_admin() -> None:

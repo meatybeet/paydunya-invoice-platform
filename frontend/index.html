@@ -130,6 +130,16 @@
           <span class="truncate">Factures</span>
         </a>
 
+        <a href="#/lien-de-paiement" data-nav="paymentLink"
+           data-nav-active="bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
+           data-nav-idle="text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800/60 hover:text-stone-900 dark:hover:text-stone-100"
+           class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+          </svg>
+          <span class="truncate">Lien de paiement</span>
+        </a>
+
         <div id="nav-admin-group" class="hidden pt-4">
           <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">Administration</p>
           <a href="#/utilisateurs" data-nav="users"
@@ -237,6 +247,16 @@
           <span class="truncate max-w-full px-1">Factures</span>
         </a>
 
+        <a href="#/lien-de-paiement" data-nav="paymentLink"
+           data-nav-active="text-cyan-600 dark:text-cyan-400"
+           data-nav-idle="text-stone-400 dark:text-stone-500"
+           class="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-bold transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+          </svg>
+          <span class="truncate max-w-full px-1">Paiement</span>
+        </a>
+
         <a href="#/utilisateurs" data-nav="users" id="nav-users-tab"
            data-nav-active="text-cyan-600 dark:text-cyan-400"
            data-nav-idle="text-stone-400 dark:text-stone-500"
@@ -265,6 +285,7 @@
     <script src="js/views/businessProducts.js"></script>
   <script src="js/views/invoices.js"></script>
   <script src="js/views/invoice-detail.js"></script>
+  <script src="js/views/paymentLink.js"></script>
   <script src="js/views/users.js"></script>
 
   <!-- Bootstrap -->

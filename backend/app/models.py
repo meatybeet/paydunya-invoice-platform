@@ -44,6 +44,9 @@ class InvoiceInDB(BaseModel):
     status: InvoiceStatus = InvoiceStatus.pending
     payment_url: str | None = None
     paydunya_token: str | None = None
+    public_token: str | None = None
+    receipt_number: str | None = None
+    paid_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -1,0 +1,3 @@
+# Uploaded business and product images are user data, never committed.
+*
+!.gitignore

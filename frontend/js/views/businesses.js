@@ -64,6 +64,21 @@
     return (business && business.name) || 'Entreprise sans nom';
   }
 
+  /**
+   * Drop files the picker uploaded during this form session that the saved
+   * record does not reference. Called when the modal closes; failures are
+   * ignored on purpose since an orphan file is harmless.
+   */
+  function discardUnusedUploads(picker, keptUrl) {
+    var kept = ui.imageFilename(keptUrl);
+    picker.uploaded().forEach(function (filename) {
+      if (!filename || filename === kept) return;
+      App.api.deleteImage(filename).then(null, function () {
+        /* ignore */
+      });
+    });
+  }
+
   function sameIdList(first, second) {
     if (first.length !== second.length) return false;
     var left = first.slice().sort();
@@ -115,6 +130,21 @@
         nameError,
       ])
     );
+
+    // --- Image --------------------------------------------------------------
+    // Placed after the name so the modal's autofocus still lands on the name.
+    var initialImage = (isEdit && business.image_url) || null;
+    var imageValue = initialImage;
+    var imageField = ui.imagePicker({
+      value: initialImage,
+      label: 'Image de l’entreprise',
+      hint: 'Facultative. PNG, JPEG ou WebP · 2 Mo maximum. Elle illustre le catalogue public.',
+      alt: '',
+      onChange: function (url) {
+        imageValue = url || null;
+      },
+    });
+    form.appendChild(imageField.element);
 
     // --- Description --------------------------------------------------------
     var descriptionInput = el('textarea', {
@@ -428,13 +458,22 @@
         description: descriptionInput.value.trim(),
         visibility: selectedVisibility(),
         member_ids: selectedMemberIds(),
+        image_url: imageValue || null,
       };
     }
 
     var submitting = false;
+    var savedBusiness = null;
 
     function submit(close, submitButton) {
       if (submitting) return;
+      if (imageField.busy()) {
+        ui.toast({
+          message: 'L’image est en cours d’envoi. Réessayez dans un instant.',
+          type: 'info',
+        });
+        return;
+      }
       var values = validate();
       if (!values) return;
 
@@ -449,6 +488,7 @@
         if (values.member_ids && !sameIdList(values.member_ids, business.member_ids || [])) {
           payload.member_ids = values.member_ids;
         }
+        if (values.image_url !== (business.image_url || null)) payload.image_url = values.image_url;
         if (!Object.keys(payload).length) {
           ui.toast({ message: 'Aucune modification à enregistrer.', type: 'info' });
           close(null);
@@ -460,6 +500,7 @@
           description: values.description || null,
           visibility: values.visibility,
           member_ids: values.member_ids || [],
+          image_url: values.image_url,
         };
       }
 
@@ -472,6 +513,7 @@
       call.then(
         function (saved) {
           submitting = false;
+          savedBusiness = saved;
           close(null);
           ui.toast({
             message: isEdit
@@ -501,6 +543,9 @@
         : 'Créez une entreprise pour publier un catalogue et émettre des factures.',
       size: 'lg',
       body: form,
+      onClose: function () {
+        discardUnusedUploads(imageField, savedBusiness ? savedBusiness.image_url : initialImage);
+      },
       actions: [
         {
           label: 'Annuler',
@@ -719,9 +764,14 @@
           'aria-labelledby': titleId,
         });
 
-        // Head: name (stretched link over the whole card) + visibility badge.
+        // Head: image, name (stretched link over the whole card), visibility badge.
         card.appendChild(
-          el('div', { class: 'flex items-start justify-between gap-3' }, [
+          el('div', { class: 'flex items-start gap-3 sm:gap-3.5' }, [
+            ui.imageThumb(business.image_url, {
+              size: 'h-11 w-11 sm:h-14 sm:w-14 shrink-0',
+              rounded: '2xl',
+              icon: 'business',
+            }),
             el('div', { class: 'min-w-0 flex-1' }, [
               el('h2', { class: cls.cardTitle + ' ' + cls.breakAnywhere, id: titleId }, [
                 el('a', {

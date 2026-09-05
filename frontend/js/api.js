@@ -18,6 +18,7 @@
     'Only the owner can manage members': 'Seul le propriétaire peut gérer les membres.',
     'Only the owner can delete a business': 'Seul le propriétaire peut supprimer une entreprise.',
     'Invalid category ID': 'Catégorie invalide.',
+    "Cette catégorie n'appartient pas à cette entreprise.": "Cette catégorie n’appartient pas à cette entreprise.",
     'Invalid business ID': 'Entreprise invalide.',
     'Product not found': 'Produit introuvable.',
     'Invoice not found': 'Facture introuvable.',
@@ -25,6 +26,25 @@
       "Chaque produit doit appartenir à l'entreprise sélectionnée.",
     'PayDunya checkout invoices must total at least 200 FCFA':
       'Le montant total de la facture doit être d’au moins 200 FCFA.',
+    'You do not have access to this invoice': "Vous n'avez pas accès à cette facture.",
+    // Already-French backend details listed here so readDetail keeps them as-is
+    // instead of replacing them with the generic 502 fallback.
+    "Le lien de paiement n'a pas pu être généré. Veuillez réessayer dans un instant.":
+      "Le lien de paiement n'a pas pu être généré. Veuillez réessayer dans un instant.",
+    'Cette facture est déjà payée. Aucun nouveau lien de paiement n\'est nécessaire.':
+      'Cette facture est déjà payée. Aucun nouveau lien de paiement n\'est nécessaire.',
+    'Cette facture est annulée et ne peut plus recevoir de lien de paiement.':
+      'Cette facture est annulée et ne peut plus recevoir de lien de paiement.',
+    'Cette facture est annulée et ne peut plus être réglée.':
+      'Cette facture est annulée et ne peut plus être réglée.',
+    'Le statut payé est réservé à la confirmation PayDunya.':
+      'Le statut payé est réservé à la confirmation PayDunya.',
+    'Une facture payée ne peut plus être modifiée manuellement.':
+      'Une facture payée ne peut plus être modifiée manuellement.',
+    'La facture téléchargeable sera disponible après confirmation du paiement.':
+      'La facture téléchargeable sera disponible après confirmation du paiement.',
+    'Cette facture est introuvable. Vérifiez le lien reçu.':
+      'Cette facture est introuvable. Vérifiez le lien reçu.',
   };
 
   // Field names as they appear in FastAPI validation "loc" arrays.
@@ -48,6 +68,9 @@
     category_id: 'Catégorie',
     status: 'Statut',
     slug: 'Identifiant',
+    product_id: 'Produit',
+    image_url: 'Image',
+    file: 'Fichier',
   };
 
   var STATUS_FALLBACK = {
@@ -56,6 +79,8 @@
     403: "Vous n'avez pas les droits nécessaires pour cette action.",
     404: 'Ressource introuvable.',
     409: 'Cet élément existe déjà.',
+    413: 'Le fichier est trop volumineux.',
+    415: 'Ce format de fichier n’est pas pris en charge.',
     422: 'Certaines informations sont invalides.',
     429: 'Trop de requêtes. Réessayez dans un instant.',
     500: 'Une erreur serveur est survenue. Réessayez plus tard.',
@@ -140,15 +165,20 @@
    * Internal fetch helper.
    * @param {string} path      Path appended to App.config.API_URL (or absolute when opts.absolute).
    * @param {object} [opts]    {method, body, auth, signal, absolute}
+   *
+   * A FormData body is sent untouched and WITHOUT a Content-Type header: the
+   * browser has to set the multipart boundary itself or the server answers 422.
    */
   function request(path, opts) {
     opts = opts || {};
     var method = opts.method || 'GET';
     var useAuth = opts.auth !== false;
     var url = opts.absolute ? path : App.config.API_URL + path;
+    var hasBody = opts.body !== undefined && opts.body !== null;
+    var isMultipart = hasBody && typeof FormData !== 'undefined' && opts.body instanceof FormData;
 
     var headers = { Accept: 'application/json' };
-    if (opts.body !== undefined && opts.body !== null) headers['Content-Type'] = 'application/json';
+    if (hasBody && !isMultipart) headers['Content-Type'] = 'application/json';
     if (useAuth) {
       var token = App.session.token();
       if (token) headers.Authorization = 'Bearer ' + token;
@@ -158,7 +188,7 @@
       method: method,
       headers: headers,
       signal: opts.signal,
-      body: opts.body === undefined || opts.body === null ? undefined : JSON.stringify(opts.body),
+      body: !hasBody ? undefined : isMultipart ? opts.body : JSON.stringify(opts.body),
     })
       .catch(function (err) {
         if (err && err.name === 'AbortError') throw err;
@@ -314,6 +344,18 @@
       return request('/invoices', { method: 'POST', body: payload });
     },
 
+    /**
+     * Builds an invoice from catalog products. Names and prices come from the
+     * database, so only product_id + quantity are sent.
+     * payload = {business_id, customer_name, customer_email, customer_phone,
+     *            currency, items:[{product_id, quantity}]}
+     * Resolves with 201 even when PayDunya is unreachable: in that case
+     * payment_url is null and `warning` holds a French explanation to display.
+     */
+    createInvoiceFromProducts: function (payload) {
+      return request('/invoices/from-products', { method: 'POST', body: payload });
+    },
+
     listInvoices: function () {
       return request('/invoices');
     },
@@ -335,6 +377,51 @@
       return request('/invoices/' + encodeURIComponent(invoiceId) + '/payment-link', {
         method: 'POST',
       });
+    },
+
+    // --------------------------------------------------------------- uploads
+    /**
+     * Uploads one image (PNG, JPEG or WebP, 2 Mo max).
+     * @param {File} file  The file taken from an <input type="file">.
+     * @returns {Promise<{url: string, filename: string}>} url is stored verbatim
+     *          into business.image_url / product.image_url.
+     */
+    uploadImage: function (file) {
+      var form = new FormData();
+      // The server reads the part named exactly "file".
+      form.append('file', file);
+      return request('/uploads/image', { method: 'POST', body: form });
+    },
+
+    /** Deletes an uploaded file. Pass the bare filename, not the full url. */
+    deleteImage: function (filename) {
+      return request('/uploads/image/' + encodeURIComponent(filename), { method: 'DELETE' });
+    },
+
+    // ------------------------------------------- public invoices (no auth)
+    // The unguessable public token is the credential here: these calls must not
+    // send the Authorization header and must not clear the session on 401.
+    /** Resolves with the 12-key PublicInvoiceResponse. 404 when the token is unknown. */
+    getPublicInvoice: function (token) {
+      return request('/public/invoices/' + encodeURIComponent(token), { auth: false });
+    },
+
+    /** Same shape with payment_url filled in. 409 when the invoice is already paid. */
+    createPublicPaymentLink: function (token) {
+      return request('/public/invoices/' + encodeURIComponent(token) + '/payment-link', {
+        method: 'POST',
+        auth: false,
+      });
+    },
+
+    /** Absolute URL of the standalone invoice document (use as an href, not a fetch). */
+    invoiceHtmlUrl: function (token) {
+      return App.config.API_URL + '/public/invoices/' + encodeURIComponent(token) + '/html';
+    },
+
+    /** Absolute URL of the same document as a file attachment (href + download). */
+    invoiceDownloadUrl: function (token) {
+      return App.config.API_URL + '/public/invoices/' + encodeURIComponent(token) + '/download';
     },
   };
 })();
