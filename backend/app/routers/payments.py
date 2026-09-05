@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request
@@ -22,8 +23,14 @@ def read_callback_data(body: bytes) -> dict:
 
     data: dict = {}
     for key, value in form.items():
-        if key.startswith("data[") and key.endswith("]"):
-            data[key[5:-1]] = value[0]
+        parts = re.findall(r"[^\[\]]+", key)
+        if not parts or parts[0] != "data":
+            continue
+        target = data
+        for part in parts[1:-1]:
+            target = target.setdefault(part, {})
+        if len(parts) > 1:
+            target[parts[-1]] = value[0]
     return data
 
 

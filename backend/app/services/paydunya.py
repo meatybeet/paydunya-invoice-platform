@@ -31,18 +31,23 @@ class PayDunyaClient:
     async def create_payment_link(self, invoice: InvoiceInDB) -> PayDunyaPaymentLink:
         payload = {
             "invoice": {
-                "items": [
-                    {
+                "items": {
+                    f"item_{index}": {
                         "name": item.name,
                         "quantity": item.quantity,
                         "unit_price": item.unit_price,
                         "total_price": item.total,
                         "description": item.name,
                     }
-                    for item in invoice.items
-                ],
+                    for index, item in enumerate(invoice.items)
+                },
                 "total_amount": invoice.amount,
                 "description": f"Invoice for {invoice.customer_name}",
+                "customer": {
+                    "name": invoice.customer_name,
+                    "email": invoice.customer_email or "",
+                    "phone": invoice.customer_phone or "",
+                },
             },
             "store": {
                 "name": settings.paydunya_store_name,
