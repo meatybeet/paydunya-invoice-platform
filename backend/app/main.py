@@ -28,6 +28,7 @@ from .database import close_database, connect_database
 from .routers.auth import router as auth_router
 from .routers.businesses import router as businesses_router
 from .routers.invoices import router as invoices_router
+from .routers.payments import router as payments_router
 from .routers.public import router as public_router
 from .services.bootstrap import ensure_super_admin
 
@@ -54,6 +55,7 @@ app.include_router(invoices_router, prefix=settings.api_prefix)
 app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(businesses_router, prefix=settings.api_prefix)
 app.include_router(public_router, prefix=settings.api_prefix)
+app.include_router(payments_router, prefix=settings.api_prefix)
 
 
 @app.get("/health")
@@ -69,7 +71,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tunnel", action="store_true", help="Expose localhost through a Cloudflare quick tunnel")
     args = parser.parse_args()
-    tunnel = start_cloudflare_tunnel() if args.tunnel else None
+    def use_tunnel_urls(public_url: str) -> None:
+        settings.paydunya_callback_url = f"{public_url}{settings.api_prefix}/payments/callback"
+        settings.paydunya_return_url = f"{public_url}{settings.api_prefix}/payments/success"
+        settings.paydunya_cancel_url = f"{public_url}{settings.api_prefix}/payments/cancel"
+
+    tunnel = start_cloudflare_tunnel(on_url=use_tunnel_urls) if args.tunnel else None
     try:
         uvicorn.run(app, host="127.0.0.1", port=8000)
     finally:

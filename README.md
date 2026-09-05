@@ -86,7 +86,8 @@ cd backend\app
 python main.py --tunnel
 ```
 
-The terminal prints a temporary `trycloudflare.com` URL. The included
+The terminal prints a temporary `trycloudflare.com` URL and automatically uses
+it for the PayDunya callback, return, and cancel URLs. The included
 `cloudflared.example.yml` is a starting point for a permanent named tunnel.
 
 ## Roles and access

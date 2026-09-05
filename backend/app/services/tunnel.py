@@ -3,9 +3,12 @@ import shutil
 import subprocess
 import sys
 import threading
+from collections.abc import Callable
 
 
-def start_cloudflare_tunnel(port: int = 8000) -> subprocess.Popen | None:
+def start_cloudflare_tunnel(
+    port: int = 8000, on_url: Callable[[str], None] | None = None
+) -> subprocess.Popen | None:
     """Start Cloudflare's temporary quick tunnel and print its public URL."""
     executable = shutil.which("cloudflared")
     if executable is None:
@@ -23,7 +26,10 @@ def start_cloudflare_tunnel(port: int = 8000) -> subprocess.Popen | None:
         for line in process.stdout:
             match = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
             if match:
-                print(f"Cloudflare public URL: {match.group(0)}")
+                public_url = match.group(0)
+                if on_url is not None:
+                    on_url(public_url)
+                print(f"Cloudflare public URL: {public_url}")
             else:
                 print(f"[cloudflared] {line}", end="")
 
