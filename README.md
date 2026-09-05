@@ -134,6 +134,8 @@ Protected routes need this header after login:
 Authorization: Bearer <access_token>
 ```
 
+PayDunya checkout invoices must be at least **200 FCFA**.
+
 ## Next steps
 
 - Complete the PayDunya request payload in `backend/app/services/paydunya.py`.

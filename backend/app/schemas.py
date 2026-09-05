@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from .models import BusinessVisibility, InvoiceItem, InvoiceStatus, UserRole
 
@@ -11,6 +11,12 @@ class InvoiceCreate(BaseModel):
     customer_phone: str | None = None
     currency: str = "XOF"
     items: list[InvoiceItem]
+
+    @model_validator(mode="after")
+    def validate_minimum_checkout_amount(self) -> "InvoiceCreate":
+        if sum(item.total for item in self.items) < 200:
+            raise ValueError("PayDunya checkout invoices must total at least 200 FCFA")
+        return self
 
 
 class InvoiceStatusUpdate(BaseModel):
