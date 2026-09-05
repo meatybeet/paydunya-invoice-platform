@@ -66,7 +66,7 @@ AUTH_SECRET=use-a-long-random-secret
 ```
 
 If the two super-admin values are omitted, the application asks for them the
-first time it starts from an interactive terminal. MongoDB must be running.
+first time it starts from an interactive terminal.
 
 5. Start the application:
 
@@ -76,6 +76,14 @@ python main.py
 ```
 
 6. Open `frontend/index.html` in your browser.
+
+When `MONGODB_URL` is `mongodb://localhost:27017`, starting the app also starts
+the included MongoDB Docker container and waits until it is ready. Docker
+Desktop must be running. The data is stored in the named Docker volume
+`paydunya_mongo_data`, so restarting the app does not erase it.
+
+To use MongoDB Atlas or another remote database instead, set `MONGODB_URL` to
+that connection string; the local Docker container will be skipped.
 
 To expose the local API temporarily through Cloudflare, install
 [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/),

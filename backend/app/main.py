@@ -66,11 +66,13 @@ async def health() -> dict[str, str]:
 if __name__ == "__main__":
     import argparse
     import uvicorn
+    from .services.mongo import start_development_mongo
     from .services.tunnel import start_cloudflare_tunnel
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--tunnel", action="store_true", help="Expose localhost through a Cloudflare quick tunnel")
     args = parser.parse_args()
+    start_development_mongo()
     def use_tunnel_urls(public_url: str) -> None:
         settings.paydunya_callback_url = f"{public_url}{settings.api_prefix}/payments/callback"
         settings.paydunya_return_url = f"{public_url}{settings.api_prefix}/payments/success"
