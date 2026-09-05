@@ -1101,8 +1101,9 @@ If, later, you deliberately host the frontend somewhere else, add **only** its e
 CORS_ORIGINS=https://app.mondomaine.com
 ```
 
-For two separate frontend origins, separate them with a comma. Do not use `*`. Restart after any
-change:
+For two separate frontend origins, separate them with a comma. Do not use `*`. An empty value still
+allows only the local development server on port 5500; it does not open the API to internet sites.
+Restart after any change:
 
 ```bash
 sudo systemctl restart paydunya

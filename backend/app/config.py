@@ -54,17 +54,28 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
+# The repository can also be opened with Python's simple static server while
+# developing the frontend. These are loopback-only browser origins, not public
+# sites. Production remains same-origin unless CORS_ORIGINS is set explicitly.
+LOCAL_DEVELOPMENT_CORS_ORIGINS = [
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://[::1]:5500",
+]
+
+
 def configured_cors_origins() -> list[str]:
     """Return clean, explicit CORS origins from ``CORS_ORIGINS``.
 
     Empty entries and a trailing slash are harmless in an environment file but
     must not reach Starlette's exact-origin comparison.
     """
-    return [
+    configured = [
         origin.strip().rstrip("/")
         for origin in settings.cors_origins.split(",")
         if origin.strip()
     ]
+    return configured or LOCAL_DEVELOPMENT_CORS_ORIGINS
 
 
 def resolved_upload_directory() -> Path:
