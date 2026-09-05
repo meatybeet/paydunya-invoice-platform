@@ -12,7 +12,7 @@ router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 
 def serialize_invoice(document: dict) -> InvoiceResponse:
-    invoice = InvoiceInDB(**document)
+    invoice = InvoiceInDB(**{**document, "_id": str(document["_id"])})
     return InvoiceResponse(
         id=str(document["_id"]),
         customer_name=invoice.customer_name,

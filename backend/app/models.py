@@ -11,6 +11,17 @@ class InvoiceStatus(StrEnum):
     canceled = "canceled"
 
 
+class UserRole(StrEnum):
+    super_admin = "super_admin"
+    manager = "manager"
+    staff = "staff"
+
+
+class BusinessVisibility(StrEnum):
+    public = "public"
+    private = "private"
+
+
 class InvoiceItem(BaseModel):
     name: str
     quantity: int = Field(gt=0)

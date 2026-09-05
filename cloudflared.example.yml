@@ -1,0 +1,10 @@
+# Optional configuration for a permanent named Cloudflare tunnel.
+# Quick tunnels need no configuration: run `python main.py --tunnel` from
+# backend/app and copy the generated trycloudflare.com address.
+tunnel: replace-with-your-tunnel-id
+credentials-file: C:\\Users\\your-user\\.cloudflared\\replace-with-your-tunnel-id.json
+
+ingress:
+  - hostname: invoices.example.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404

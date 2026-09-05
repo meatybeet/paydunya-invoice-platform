@@ -1,14 +1,15 @@
 # PayDunya Invoice Platform
 
-Starter open-source invoice platform for creating invoices and generating Mobile Money payment links through PayDunya.
-
-This is intentionally a basic scaffold so you can finish the business logic yourself.
+An open-source platform for managing multiple businesses, their product catalogs,
+invoices, and PayDunya Mobile Money payment links.
 
 ## Tech Stack
 
 - FastAPI backend
 - MongoDB via Motor
-- PayDunya API integration placeholder
+- Role-based users and business access
+- Public or private product catalogs
+- PayDunya payment-link integration
 - Simple static HTML frontend
 
 ## Project Structure
@@ -22,7 +23,10 @@ backend/
     models.py
     schemas.py
     routers/
+      auth.py
+      businesses.py
       invoices.py
+      public.py
     services/
       paydunya.py
 frontend/
@@ -53,7 +57,16 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-4. Edit `.env` and add your MongoDB URL and PayDunya keys.
+4. Edit `.env`. At minimum, set a secure `AUTH_SECRET` and the first super-admin credentials:
+
+```env
+SUPER_ADMIN_EMAIL=admin@example.com
+SUPER_ADMIN_PASSWORD=use-a-long-password
+AUTH_SECRET=use-a-long-random-secret
+```
+
+If the two super-admin values are omitted, the application asks for them the
+first time it starts from an interactive terminal. MongoDB must be running.
 
 5. Start the application:
 
@@ -64,20 +77,56 @@ python main.py
 
 6. Open `frontend/index.html` in your browser.
 
-## API Endpoints
+To expose the local API temporarily through Cloudflare, install
+[`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/),
+then run:
+
+```powershell
+cd backend\app
+python main.py --tunnel
+```
+
+The terminal prints a temporary `trycloudflare.com` URL. The included
+`cloudflared.example.yml` is a starting point for a permanent named tunnel.
+
+## Roles and access
+
+- A **super admin** creates and lists users, and can manage every business.
+- **Managers** and **staff** can create businesses and manage businesses where
+  they are the owner or a member.
+- Only a business owner or super admin can delete a business. Only a super
+  admin can create users.
+- A business owner can add existing users as members with `member_ids` when
+  creating or updating a business.
+
+## API endpoints
 
 - `GET /health`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/users` — super admin only
+- `GET /api/auth/users` — super admin only
+- `POST`, `GET`, `PATCH`, `DELETE /api/businesses`
+- `POST`, `GET /api/businesses/{business_id}/categories`
+- `POST`, `GET /api/businesses/{business_id}/products`
+- `PATCH`, `DELETE /api/businesses/{business_id}/products/{product_id}`
+- `GET /api/public/businesses/{slug}`
+- `GET /api/public/businesses/{slug}/products`
 - `POST /api/invoices`
 - `GET /api/invoices`
 - `GET /api/invoices/{invoice_id}`
 - `PATCH /api/invoices/{invoice_id}/status`
 - `POST /api/invoices/{invoice_id}/payment-link`
 
-## Next Steps
+Protected routes need this header after login:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+## Next steps
 
 - Complete the PayDunya request payload in `backend/app/services/paydunya.py`.
-- Add authentication for merchants.
-- Store each merchant's own PayDunya keys securely.
 - Add PayDunya webhook handling.
 - Generate PDF invoices.
-- Improve frontend validation and invoice management.
+- Build a signed-in frontend for business and product management.

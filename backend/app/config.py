@@ -1,4 +1,9 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+BACKEND_DIRECTORY = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -17,7 +22,13 @@ class Settings(BaseSettings):
     paydunya_return_url: str = "http://localhost:8000/payment/success"
     paydunya_cancel_url: str = "http://localhost:8000/payment/cancel"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    auth_secret: str = "change-this-before-production"
+    super_admin_email: str = ""
+    super_admin_password: str = ""
+
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_DIRECTORY / ".env", env_file_encoding="utf-8"
+    )
 
 
 settings = Settings()

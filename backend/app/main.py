@@ -25,12 +25,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import close_database, connect_database
+from .routers.auth import router as auth_router
+from .routers.businesses import router as businesses_router
 from .routers.invoices import router as invoices_router
+from .routers.public import router as public_router
+from .services.bootstrap import ensure_super_admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_database()
+    await ensure_super_admin()
     yield
     await close_database()
 
@@ -46,6 +51,9 @@ app.add_middleware(
 )
 
 app.include_router(invoices_router, prefix=settings.api_prefix)
+app.include_router(auth_router, prefix=settings.api_prefix)
+app.include_router(businesses_router, prefix=settings.api_prefix)
+app.include_router(public_router, prefix=settings.api_prefix)
 
 
 @app.get("/health")
@@ -54,6 +62,16 @@ async def health() -> dict[str, str]:
 
 
 if __name__ == "__main__":
+    import argparse
     import uvicorn
+    from .services.tunnel import start_cloudflare_tunnel
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tunnel", action="store_true", help="Expose localhost through a Cloudflare quick tunnel")
+    args = parser.parse_args()
+    tunnel = start_cloudflare_tunnel() if args.tunnel else None
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=8000)
+    finally:
+        if tunnel is not None:
+            tunnel.terminate()
