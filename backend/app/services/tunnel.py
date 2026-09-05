@@ -20,6 +20,7 @@ def start_cloudflare_tunnel(
         [executable, "tunnel", "--url", f"http://127.0.0.1:{port}"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
+    ready = threading.Event()
 
     def stream_output() -> None:
         assert process.stdout is not None
@@ -30,8 +31,13 @@ def start_cloudflare_tunnel(
                 if on_url is not None:
                     on_url(public_url)
                 print(f"Cloudflare public URL: {public_url}")
+                ready.set()
             else:
                 print(f"[cloudflared] {line}", end="")
 
     threading.Thread(target=stream_output, daemon=True).start()
+    if not ready.wait(timeout=30):
+        process.terminate()
+        print("Cloudflare did not provide a public URL within 30 seconds. The API was not started.")
+        return None
     return process

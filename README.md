@@ -86,8 +86,9 @@ cd backend\app
 python main.py --tunnel
 ```
 
-The terminal prints a temporary `trycloudflare.com` URL and automatically uses
-it for the PayDunya callback, return, and cancel URLs. The included
+The application waits until the temporary `trycloudflare.com` URL is available,
+then automatically uses it for the PayDunya callback, return, and cancel URLs
+before starting the API. The included
 `cloudflared.example.yml` is a starting point for a permanent named tunnel.
 
 ## Roles and access

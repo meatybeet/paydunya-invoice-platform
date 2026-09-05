@@ -77,6 +77,8 @@ if __name__ == "__main__":
         settings.paydunya_cancel_url = f"{public_url}{settings.api_prefix}/payments/cancel"
 
     tunnel = start_cloudflare_tunnel(on_url=use_tunnel_urls) if args.tunnel else None
+    if args.tunnel and tunnel is None:
+        raise SystemExit(1)
     try:
         uvicorn.run(app, host="127.0.0.1", port=8000)
     finally:
