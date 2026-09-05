@@ -22,8 +22,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from .config import settings
+from .config import BACKEND_DIRECTORY, settings
 from .database import close_database, connect_database
 from .routers.auth import router as auth_router
 from .routers.businesses import router as businesses_router
@@ -61,6 +62,18 @@ app.include_router(payments_router, prefix=settings.api_prefix)
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# The tunnel must expose the user-facing catalog as well as the API. Keeping
+# the frontend on the same origin also means a public visitor never tries to
+# call their own localhost for /api. API routes are registered above this
+# catch-all static mount, so they retain priority.
+FRONTEND_DIRECTORY = BACKEND_DIRECTORY.parent / "frontend"
+app.mount(
+    "/",
+    StaticFiles(directory=str(FRONTEND_DIRECTORY), html=True),
+    name="frontend",
+)
 
 
 if __name__ == "__main__":

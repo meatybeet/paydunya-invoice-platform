@@ -10,7 +10,7 @@ invoices, and PayDunya Mobile Money payment links.
 - Role-based users and business access
 - Public or private product catalogs
 - PayDunya payment-link integration
-- Simple static HTML frontend
+- Signed-in browser interface for businesses, products, invoices, and users
 
 ## Project Structure
 
@@ -31,8 +31,10 @@ backend/
       paydunya.py
 frontend/
   index.html
+  catalog.html
   styles.css
-  app.js
+  js/
+    views/
 ```
 
 ## Setup
@@ -75,7 +77,11 @@ cd app
 python main.py
 ```
 
-6. Open `frontend/index.html` in your browser.
+6. Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) in your browser.
+
+The FastAPI application serves the frontend itself. This is important for the
+public catalog and Cloudflare tunnel: do not open `frontend/index.html` directly
+from the filesystem when you want to share it.
 
 When `MONGODB_URL` is `mongodb://localhost:27017`, starting the app also starts
 the included MongoDB Docker container and waits until it is ready. Docker
@@ -96,7 +102,10 @@ python main.py --tunnel
 
 The application waits until the temporary `trycloudflare.com` URL is available,
 then automatically uses it for the PayDunya callback, return, and cancel URLs
-before starting the API. The included
+before starting the app. The URL serves both the browser interface and public
+catalogs. A public catalog has the form
+`https://<tunnel>.trycloudflare.com/catalog.html?slug=<business-slug>`; the
+interface copies the correct link from the business page. The included
 `cloudflared.example.yml` is a starting point for a permanent named tunnel.
 
 ## Roles and access
@@ -108,6 +117,9 @@ before starting the API. The included
   admin can create users.
 - A business owner can add existing users as members with `member_ids` when
   creating or updating a business.
+- Invoices are private: a super admin sees all invoices; other users see only
+  invoices they created or invoices belonging to a business they can access.
+  Manually changing a payment status is restricted to the super admin.
 
 ## API endpoints
 
@@ -123,11 +135,11 @@ before starting the API. The included
 - `GET /api/businesses/{business_id}/payment-history`
 - `GET /api/public/businesses/{slug}`
 - `GET /api/public/businesses/{slug}/products`
-- `POST /api/invoices`
-- `GET /api/invoices`
-- `GET /api/invoices/{invoice_id}`
-- `PATCH /api/invoices/{invoice_id}/status`
-- `POST /api/invoices/{invoice_id}/payment-link`
+- `POST /api/invoices` — authorised business members only
+- `GET /api/invoices` — invoices visible to the signed-in user
+- `GET /api/invoices/{invoice_id}` — authorised invoice viewers only
+- `PATCH /api/invoices/{invoice_id}/status` — super admin only
+- `POST /api/invoices/{invoice_id}/payment-link` — authorised invoice viewers only
 
 Protected routes need this header after login:
 
@@ -142,9 +154,13 @@ the invoice root and each product ID on its matching item. The business payment
 history endpoint then shows the invoice, customer, line items, and payment
 status.
 
-## Next steps
+## Quick manual test
 
-- Complete the PayDunya request payload in `backend/app/services/paydunya.py`.
-- Add PayDunya webhook handling.
-- Generate PDF invoices.
-- Build a signed-in frontend for business and product management.
+1. Sign in with the super-admin account created on first launch.
+2. Create an enterprise, add a product, then create an invoice for at least
+   **200 FCFA** from the **Factures** page.
+3. Generate its payment link and open it in a new tab. The invoice detail page
+   identifies its linked business and product line items.
+4. Mark the business public and open its copied catalog link in a private
+   browser window. For an internet test, start with `--tunnel` and use the
+   `trycloudflare.com` link printed in the terminal.
