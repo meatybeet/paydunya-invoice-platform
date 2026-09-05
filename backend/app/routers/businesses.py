@@ -7,8 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from ..database import get_database
 from ..schemas import (
     BusinessCreate, BusinessResponse, BusinessUpdate, CategoryCreate, CategoryResponse,
-    ProductCreate, ProductResponse, ProductUpdate,
+    InvoiceResponse, ProductCreate, ProductResponse, ProductUpdate,
 )
+from .invoices import serialize_invoice
 from .auth import current_user
 
 router = APIRouter(prefix="/businesses", tags=["businesses"])
@@ -124,6 +125,13 @@ async def create_product(business_id: str, payload: ProductCreate, user: dict = 
 async def list_products(business_id: str, user: dict = Depends(current_user)) -> list[ProductResponse]:
     business = await require_manager(business_id, user); rows = await get_database().products.find({"business_id": business["_id"]}).sort("created_at", -1).to_list(length=1000)
     return [serialize_product(row) for row in rows]
+
+
+@router.get("/{business_id}/payment-history", response_model=list[InvoiceResponse])
+async def payment_history(business_id: str, user: dict = Depends(current_user)) -> list[InvoiceResponse]:
+    business = await require_manager(business_id, user)
+    invoices = await get_database().invoices.find({"business_id": business["_id"]}).sort("created_at", -1).to_list(length=1000)
+    return [serialize_invoice(invoice) for invoice in invoices]
 
 
 @router.patch("/{business_id}/products/{product_id}", response_model=ProductResponse)

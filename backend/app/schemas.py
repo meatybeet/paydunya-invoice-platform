@@ -10,6 +10,7 @@ class InvoiceCreate(BaseModel):
     customer_email: EmailStr | None = None
     customer_phone: str | None = None
     currency: str = "XOF"
+    business_id: str | None = None
     items: list[InvoiceItem]
 
     @model_validator(mode="after")
@@ -29,6 +30,7 @@ class InvoiceResponse(BaseModel):
     customer_email: str | None = None
     customer_phone: str | None = None
     currency: str
+    business_id: str | None = None
     items: list[InvoiceItem]
     amount: float
     status: InvoiceStatus

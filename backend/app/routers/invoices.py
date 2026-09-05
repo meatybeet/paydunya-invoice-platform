@@ -12,13 +12,17 @@ router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 
 def serialize_invoice(document: dict) -> InvoiceResponse:
-    invoice = InvoiceInDB(**{**document, "_id": str(document["_id"])})
+    invoice_data = {**document, "_id": str(document["_id"])}
+    if document.get("business_id") is not None:
+        invoice_data["business_id"] = str(document["business_id"])
+    invoice = InvoiceInDB(**invoice_data)
     return InvoiceResponse(
         id=str(document["_id"]),
         customer_name=invoice.customer_name,
         customer_email=invoice.customer_email,
         customer_phone=invoice.customer_phone,
         currency=invoice.currency,
+        business_id=invoice.business_id,
         items=invoice.items,
         amount=invoice.amount,
         status=invoice.status,
@@ -43,11 +47,27 @@ async def find_invoice_or_404(invoice_id: str) -> dict:
 async def create_invoice(payload: InvoiceCreate) -> InvoiceResponse:
     db = get_database()
     now = datetime.utcnow()
+    business_id = None
+    if payload.business_id is not None:
+        if not ObjectId.is_valid(payload.business_id):
+            raise HTTPException(status_code=422, detail="Invalid business ID")
+        business_id = ObjectId(payload.business_id)
+        if await db.businesses.find_one({"_id": business_id}) is None:
+            raise HTTPException(status_code=404, detail="Business not found")
+        product_ids = [item.product_id for item in payload.items if item.product_id]
+        if product_ids:
+            valid_product_ids = [ObjectId(product_id) for product_id in product_ids if ObjectId.is_valid(product_id)]
+            matching_products = await db.products.count_documents(
+                {"_id": {"$in": valid_product_ids}, "business_id": business_id}
+            )
+            if matching_products != len(product_ids):
+                raise HTTPException(status_code=422, detail="Each product must belong to this business")
     document = {
         "customer_name": payload.customer_name,
         "customer_email": payload.customer_email,
         "customer_phone": payload.customer_phone,
         "currency": payload.currency,
+        "business_id": business_id,
         "items": [item.model_dump() for item in payload.items],
         "status": "pending",
         "payment_url": None,

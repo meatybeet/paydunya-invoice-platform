@@ -120,6 +120,7 @@ before starting the API. The included
 - `POST`, `GET /api/businesses/{business_id}/categories`
 - `POST`, `GET /api/businesses/{business_id}/products`
 - `PATCH`, `DELETE /api/businesses/{business_id}/products/{product_id}`
+- `GET /api/businesses/{business_id}/payment-history`
 - `GET /api/public/businesses/{slug}`
 - `GET /api/public/businesses/{slug}/products`
 - `POST /api/invoices`
@@ -135,6 +136,11 @@ Authorization: Bearer <access_token>
 ```
 
 PayDunya checkout invoices must be at least **200 FCFA**.
+
+To associate an invoice with a business and products, include the business ID at
+the invoice root and each product ID on its matching item. The business payment
+history endpoint then shows the invoice, customer, line items, and payment
+status.
 
 ## Next steps
 

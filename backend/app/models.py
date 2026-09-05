@@ -26,6 +26,7 @@ class InvoiceItem(BaseModel):
     name: str
     quantity: int = Field(gt=0)
     unit_price: float = Field(ge=0)
+    product_id: str | None = None
 
     @property
     def total(self) -> float:
@@ -38,6 +39,7 @@ class InvoiceInDB(BaseModel):
     customer_email: str | None = None
     customer_phone: str | None = None
     currency: str = "XOF"
+    business_id: str | None = None
     items: list[InvoiceItem]
     status: InvoiceStatus = InvoiceStatus.pending
     payment_url: str | None = None
