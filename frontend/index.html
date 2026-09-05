@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PayDunya Invoice Platform</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <h1>Invoices</h1>
+        <form id="invoice-form">
+          <label>
+            Customer name
+            <input id="customer-name" name="customer_name" required />
+          </label>
+          <label>
+            Customer email
+            <input id="customer-email" name="customer_email" type="email" />
+          </label>
+          <label>
+            Customer phone
+            <input id="customer-phone" name="customer_phone" />
+          </label>
+          <label>
+            Item name
+            <input id="item-name" required />
+          </label>
+          <label>
+            Quantity
+            <input id="item-quantity" type="number" min="1" value="1" required />
+          </label>
+          <label>
+            Unit price
+            <input id="item-price" type="number" min="0" value="1000" required />
+          </label>
+          <button type="submit">Create invoice</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="toolbar">
+          <h2>Recent invoices</h2>
+          <button id="refresh-button" type="button">Refresh</button>
+        </div>
+        <div id="invoice-list" class="invoice-list"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

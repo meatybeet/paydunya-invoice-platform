@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+.env
+private_key.pem
+.pytest_cache/
+*.pyc
+node_modules/
