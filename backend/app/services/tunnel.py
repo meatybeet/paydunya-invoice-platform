@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 from collections.abc import Callable
+from pathlib import Path
 
 
 def start_cloudflare_tunnel(
@@ -11,6 +12,10 @@ def start_cloudflare_tunnel(
 ) -> subprocess.Popen | None:
     """Start Cloudflare's temporary quick tunnel and print its public URL."""
     executable = shutil.which("cloudflared")
+    if executable is None and sys.platform == "win32":
+        installed_path = Path(r"C:\Program Files (x86)\cloudflared\cloudflared.exe")
+        if installed_path.is_file():
+            executable = str(installed_path)
     if executable is None:
         print("Cloudflare tunnel unavailable: install cloudflared and run this command again.")
         print("Install guide: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/")
