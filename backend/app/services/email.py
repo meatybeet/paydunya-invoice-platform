@@ -47,7 +47,7 @@ def build_invoice_email_body(invoice_document: dict, invoice_permanent_url: str)
         </p>
         {reference}
         <p style="margin:0 0 12px;">
-          Elle est jointe à ce message au format HTML : vous pouvez l'ouvrir,
+          Elle est jointe à ce message au format PDF : vous pouvez l'ouvrir,
           l'imprimer ou la conserver sur votre appareil.
         </p>
         <p style="margin:0 0 16px;">
@@ -71,7 +71,7 @@ def _build_message(
     to_address: str,
     subject: str,
     html_body: str,
-    attachment_html: str | None,
+    attachment_pdf: bytes | None,
     attachment_filename: str | None,
 ) -> EmailMessage:
     message = EmailMessage()
@@ -80,15 +80,15 @@ def _build_message(
     message["Subject"] = subject
     # Plain text alternative for clients that refuse HTML.
     message.set_content(
-        "Votre facture est disponible. Ouvrez ce message en HTML "
-        "ou utilisez le lien permanent qu'il contient."
+        "Votre facture PDF est jointe à ce message. Vous pouvez aussi utiliser "
+        "le lien permanent qu'il contient."
     )
     message.add_alternative(html_body, subtype="html")
-    if attachment_html and attachment_filename:
+    if attachment_pdf and attachment_filename:
         message.add_attachment(
-            attachment_html.encode("utf-8"),
-            maintype="text",
-            subtype="html",
+            attachment_pdf,
+            maintype="application",
+            subtype="pdf",
             filename=attachment_filename,
         )
     return message
@@ -107,7 +107,7 @@ async def send_invoice_email(
     to_address: str,
     subject: str,
     html_body: str,
-    attachment_html: str | None = None,
+    attachment_pdf: bytes | None = None,
     attachment_filename: str | None = None,
 ) -> bool:
     """Send the invoice mail. Returns False instead of raising on any failure."""
@@ -122,7 +122,7 @@ async def send_invoice_email(
 
     try:
         message = _build_message(
-            to_address, subject, html_body, attachment_html, attachment_filename
+            to_address, subject, html_body, attachment_pdf, attachment_filename
         )
         await asyncio.to_thread(_send_message, message)
     except Exception as error:

@@ -986,9 +986,9 @@ see the troubleshooting table.
 
 ### 10.1 What email is used for
 
-After a customer pays, the application generates the invoice as a self-contained HTML file and
-emails it to the address recorded on the invoice. The message also carries the permanent link so the
-customer can find the invoice again later.
+After a customer pays, the application makes the invoice available at its permanent web link,
+generates a PDF copy, and emails that PDF to the address recorded on the invoice. The message also
+carries the permanent link so the customer can find the invoice again later.
 
 Email is **optional**. If the SMTP settings are empty, the application logs a warning and carries
 on: the payment is still recorded, the invoice still exists, and the permanent link still works. A
@@ -1391,7 +1391,7 @@ that you can click to download — that button is the fallback and it must be th
 
 Check the customer mailbox you used (including the spam folder).
 
-**Expected:** an email with the invoice attached as an HTML file, and the permanent link in the body.
+**Expected:** an email with the invoice attached as a PDF, and the permanent link in the body.
 
 If nothing arrives, look for a warning line in the log window mentioning SMTP; the payment itself is
 unaffected.

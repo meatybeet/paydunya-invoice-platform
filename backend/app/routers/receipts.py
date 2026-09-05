@@ -9,12 +9,12 @@ import re
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from ..database import get_database
 from ..schemas import PublicInvoiceResponse
 from ..services.paydunya import PayDunyaClient
-from ..services.receipt import invoice_amount, permanent_url, render_invoice_html
+from ..services.receipt import invoice_amount, permanent_url, render_invoice_html, render_invoice_pdf
 from .invoices import invoice_from_document
 
 router = APIRouter(prefix="/public/invoices", tags=["public invoices"])
@@ -61,12 +61,19 @@ def safe_download_filename(document: dict) -> str:
     """ASCII only, so the Content-Disposition header stays valid everywhere."""
     reference = document.get("receipt_number") or str(document.get("_id", ""))[-8:]
     cleaned = re.sub(r"[^A-Za-z0-9_-]", "-", str(reference)).strip("-")
-    return f"facture-{cleaned or 'sans-numero'}.html"
+    return f"facture-{cleaned or 'sans-numero'}.pdf"
 
 
 async def render_public_invoice(document: dict) -> str:
     business = await load_business(document)
     return render_invoice_html(
+        document, business, permanent_url(document.get("public_token") or "")
+    )
+
+
+async def render_public_invoice_pdf(document: dict) -> bytes:
+    business = await load_business(document)
+    return render_invoice_pdf(
         document, business, permanent_url(document.get("public_token") or "")
     )
 
@@ -125,13 +132,14 @@ async def public_invoice_html(token: str) -> HTMLResponse:
     return HTMLResponse(content=await render_public_invoice(document))
 
 
-@router.get("/{token}/download", response_class=HTMLResponse)
-async def download_invoice(token: str) -> HTMLResponse:
+@router.get("/{token}/download", response_class=Response)
+async def download_invoice(token: str) -> Response:
     document = await find_public_invoice_or_404(token)
     if document.get("status") != "paid":
         raise HTTPException(status_code=409, detail=INVOICE_NOT_PAID)
-    return HTMLResponse(
-        content=await render_public_invoice(document),
+    return Response(
+        content=await render_public_invoice_pdf(document),
+        media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="{safe_download_filename(document)}"'
         },

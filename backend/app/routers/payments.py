@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from ..config import settings
 from ..database import get_database
 from ..services.email import build_invoice_email_body, send_invoice_email
-from ..services.receipt import next_receipt_number, permanent_url, render_invoice_html
+from ..services.receipt import next_receipt_number, permanent_url, render_invoice_pdf
 from .invoices import new_public_token
 from .receipts import safe_download_filename
 
@@ -63,7 +63,7 @@ async def send_paid_invoice_email(document: dict) -> None:
             to_address=recipient,
             subject=f"Votre facture {reference}".strip(),
             html_body=build_invoice_email_body(document, link),
-            attachment_html=render_invoice_html(document, business, link),
+            attachment_pdf=render_invoice_pdf(document, business, link),
             attachment_filename=safe_download_filename(document),
         )
     except Exception as error:

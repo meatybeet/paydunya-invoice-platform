@@ -11,7 +11,7 @@ invoices, and PayDunya Mobile Money payment links.
 - Public or private product catalogs
 - PayDunya payment-link integration
 - Product-selection payment links that a customer can open without an account
-- Permanent, downloadable HTML invoices issued after PayDunya confirms payment
+- Permanent web invoices with downloadable PDF copies, issued after PayDunya confirms payment
 - Optional business and product images, stored locally and served safely
 - Signed-in browser interface for businesses, products, invoices, and users
 

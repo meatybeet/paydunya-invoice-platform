@@ -16,8 +16,8 @@ pages now exist and are wired into the application.
 - `payer.html` is public. Its token is the payer credential. It shows the
   order and sends the payer to PayDunya without requiring an account.
 - PayDunya's verified callback is the only path that marks an invoice paid.
-  It assigns an immutable receipt number, produces the standalone HTML
-  invoice, and sends it through configured SMTP.
+  It assigns an immutable receipt number, makes the permanent HTML invoice
+  available, generates a PDF copy, and sends that PDF through configured SMTP.
 - `facture.html?token=...` is the permanent public invoice page. It contains
   the permanent link, download and print controls. It downloads only after an
   invoice is confirmed paid. If PayDunya returns the browser before its
