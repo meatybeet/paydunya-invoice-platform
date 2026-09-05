@@ -383,7 +383,7 @@ automatically. On the server we point at Atlas instead, so that code path is nev
    string. It looks like:
 
 ```text
-mongodb+srv://paydunya:<password>@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority
+mongodb+srv://<atlas-username>:<atlas-password>@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority
 ```
 
 7. Replace `<password>` with the real password you copied in step 4. If the password contains
@@ -562,7 +562,7 @@ APP_NAME=PayDunya Invoice Platform
 API_PREFIX=/api
 
 # --- Database -------------------------------------------------------------
-MONGODB_URL=mongodb+srv://paydunya:YOUR_PASSWORD@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority
+MONGODB_URL=mongodb+srv://<atlas-username>:<atlas-password>@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority
 MONGODB_DB=paydunya_invoice_platform
 
 # --- First administrator --------------------------------------------------
@@ -1203,7 +1203,7 @@ mongodump --version
 Take a dump (replace the connection string with yours):
 
 ```bash
-mongodump --uri="mongodb+srv://paydunya:YOUR_PASSWORD@cluster0.abcde.mongodb.net/paydunya_invoice_platform" --archive=/home/deploy/backups/db-$(date +%F).archive --gzip
+mongodump --uri="mongodb+srv://<atlas-username>:<atlas-password>@cluster0.abcde.mongodb.net/paydunya_invoice_platform" --archive=/home/deploy/backups/db-$(date +%F).archive --gzip
 ```
 
 **What you should see:** lines counting documents from `users`, `businesses`, `categories`,
@@ -1250,7 +1250,7 @@ set -euo pipefail
 
 BACKUP_DIR=/home/deploy/backups
 STAMP=$(date +%F)
-MONGO_URI="mongodb+srv://paydunya:YOUR_PASSWORD@cluster0.abcde.mongodb.net/paydunya_invoice_platform"
+MONGO_URI="mongodb+srv://<atlas-username>:<atlas-password>@cluster0.abcde.mongodb.net/paydunya_invoice_platform"
 
 mkdir -p "$BACKUP_DIR"
 
