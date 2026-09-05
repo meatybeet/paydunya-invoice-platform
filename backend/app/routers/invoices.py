@@ -12,10 +12,7 @@ router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 
 def serialize_invoice(document: dict) -> InvoiceResponse:
-    invoice_data = {**document, "_id": str(document["_id"])}
-    if document.get("business_id") is not None:
-        invoice_data["business_id"] = str(document["business_id"])
-    invoice = InvoiceInDB(**invoice_data)
+    invoice = invoice_from_document(document)
     return InvoiceResponse(
         id=str(document["_id"]),
         customer_name=invoice.customer_name,
@@ -30,6 +27,13 @@ def serialize_invoice(document: dict) -> InvoiceResponse:
         created_at=invoice.created_at,
         updated_at=invoice.updated_at,
     )
+
+
+def invoice_from_document(document: dict) -> InvoiceInDB:
+    invoice_data = {**document, "_id": str(document["_id"])}
+    if document.get("business_id") is not None:
+        invoice_data["business_id"] = str(document["business_id"])
+    return InvoiceInDB(**invoice_data)
 
 
 async def find_invoice_or_404(invoice_id: str) -> dict:
@@ -112,7 +116,7 @@ async def update_invoice_status(
 @router.post("/{invoice_id}/payment-link", response_model=InvoiceResponse)
 async def create_payment_link(invoice_id: str) -> InvoiceResponse:
     document = await find_invoice_or_404(invoice_id)
-    invoice = InvoiceInDB(**{**document, "_id": str(document["_id"])})
+    invoice = invoice_from_document(document)
 
     paydunya = PayDunyaClient()
     try:
