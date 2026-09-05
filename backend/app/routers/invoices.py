@@ -92,7 +92,7 @@ async def update_invoice_status(
 @router.post("/{invoice_id}/payment-link", response_model=InvoiceResponse)
 async def create_payment_link(invoice_id: str) -> InvoiceResponse:
     document = await find_invoice_or_404(invoice_id)
-    invoice = InvoiceInDB(**document)
+    invoice = InvoiceInDB(**{**document, "_id": str(document["_id"])})
 
     paydunya = PayDunyaClient()
     try:
